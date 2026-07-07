@@ -1,0 +1,125 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Venue {
+  id        String   @id @default(cuid())
+  name      String
+  type      String   // "SEAT_MAP" | "ZONE_BASED"
+  address   String?
+  sections  Section[]
+  events    Event[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Section {
+  id        String   @id @default(cuid())
+  venueId   String
+  name      String   // e.g., "VIP", "Balcony", "Row A"
+  capacity  Int?     // For zone-based
+  venue     Venue    @relation(fields: [venueId], references: [id])
+  seats     Seat[]
+}
+
+model Seat {
+  id        String   @id @default(cuid())
+  sectionId String
+  row       String?  // e.g., "A"
+  column    Int?     // e.g., 1
+  label     String?  // e.g., "A-1"
+  section   Section  @relation(fields: [sectionId], references: [id])
+  eventSeats EventSeat[]
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  date        DateTime
+  category    String
+  imageUrl    String?
+  venueId     String
+  venue       Venue    @relation(fields: [venueId], references: [id])
+  eventSeats  EventSeat[]
+  eventZones  EventZone[]
+  bookings    Booking[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model EventSeat {
+  id        String   @id @default(cuid())
+  eventId   String
+  seatId    String
+  status    String   // "AVAILABLE", "RESERVED", "BLOCKED", "COMPLIMENTARY", "SOLD"
+  price     Float
+  event     Event    @relation(fields: [eventId], references: [id])
+  seat      Seat     @relation(fields: [seatId], references: [id])
+  ticket    Ticket?
+}
+
+model EventZone {
+  id              String   @id @default(cuid())
+  eventId         String
+  sectionId       String
+  price           Float
+  capacity        Int      // Total allowed for this event
+  ticketsSold     Int      @default(0)
+  event           Event    @relation(fields: [eventId], references: [id])
+}
+
+model Booking {
+  id                String   @id @default(cuid())
+  eventId           String
+  customerName      String
+  customerEmail     String
+  customerPhone     String
+  totalAmount       Float
+  status            String   // "PENDING", "SUCCESS", "FAILED"
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  event             Event    @relation(fields: [eventId], references: [id])
+  tickets           Ticket[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Ticket {
+  id            String     @id @default(cuid())
+  bookingId     String
+  eventSeatId   String?    @unique // Only one ticket per seat
+  eventZoneId   String?    // If zone-based
+  qrCode        String     @default(cuid())
+  booking       Booking    @relation(fields: [bookingId], references: [id])
+  eventSeat     EventSeat? @relation(fields: [eventSeatId], references: [id])
+}
+
+model ContactInquiry {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String?
+  message   String   @db.Text
+  createdAt DateTime @default(now())
+}
+
+model EventHostingInquiry {
+  id              String   @id @default(cuid())
+  name            String
+  email           String
+  phone           String
+  eventType       String
+  expectedDate    String?
+  city            String?
+  attendeeCount   String?
+  budget          String?
+  details         String   @db.Text
+  status          String   @default("PENDING")
+  createdAt       DateTime @default(now())
+}
